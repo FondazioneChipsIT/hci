@@ -268,6 +268,24 @@ module hci_core_split
 /*
  * ECC Handshake signals
  */
+`ifdef TARGET_FPGA
+  if(EHW > 0) begin : ecc_handshake_gen_fpga
+    assign tcdm_target.egnt     = '{default: {tcdm_target.gnt}};
+    assign tcdm_target.r_evalid = '{default: {tcdm_target.r_evalid}};
+    for(genvar ii=0; ii<NB_OUT_CHAN; ii++) begin : out_chan_gen
+      assign tcdm_initiator_ereq     [ii] = tcdm_initiator_req[ii];
+      assign tcdm_initiator_r_eready [ii] = tcdm_initiator_r_ready[ii];
+    end
+  end
+  else begin : no_ecc_handshake_gen_fpga
+    assign tcdm_target.egnt     = '1;
+    assign tcdm_target.r_evalid = '0;
+    for(genvar ii=0; ii<NB_OUT_CHAN; ii++) begin : out_chan_gen
+      assign tcdm_initiator_ereq     [ii] = '0;
+      assign tcdm_initiator_r_eready [ii] = '1;
+    end
+  end
+`else
   if(EHW > 0) begin : ecc_handshake_gen
     assign tcdm_target.egnt     = '{default: {tcdm_target.gnt}};
     assign tcdm_target.r_evalid = '{default: {tcdm_target.r_evalid}};
@@ -284,6 +302,7 @@ module hci_core_split
       assign tcdm_initiator_r_eready [ii] = '1;
     end
   end
+`endif
 
 /*
  * Interface size asserts

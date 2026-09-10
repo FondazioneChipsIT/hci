@@ -66,6 +66,8 @@ module hci_ecc_interconnect
   parameter int unsigned EXPFIFO = 0                        , // FIFO Depth for HWPE Interconnect
   parameter int unsigned SEL_LIC = 0                        , // Log interconnect type selector
   parameter int unsigned FILTER_WRITE_R_VALID[0:N_HWPE-1] = '{default: 0},
+  parameter int unsigned MASK_REQ_ON_BE_WRITE[0:N_HWPE-1] = '{default: 0},
+  parameter int unsigned MASK_REQ_ON_BE_READ [0:N_HWPE-1] = '{default: 0},
   parameter int unsigned CHUNK_SIZE = 32                    , // Chunk size of data to be encoded separately (HWPE branch)
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(cores) = '0,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(mems)  = '0,
@@ -366,6 +368,8 @@ module hci_ecc_interconnect
         .NB_OUT_CHAN          ( N_MEM                     ),
         .USE_ECC              ( 1                         ),
         .FILTER_WRITE_R_VALID ( FILTER_WRITE_R_VALID[0]  ),
+        .MASK_REQ_ON_BE_WRITE ( MASK_REQ_ON_BE_WRITE[0]   ),
+        .MASK_REQ_ON_BE_READ  ( MASK_REQ_ON_BE_READ [0]   ),
         .`HCI_SIZE_PARAM(in)  ( `HCI_SIZE_PARAM(hwpe_dec) ),
         .`HCI_SIZE_PARAM(out) ( `HCI_SIZE_PARAM(hwpe_mem) )
       ) i_ecc_router (

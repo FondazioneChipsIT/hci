@@ -23,6 +23,8 @@ module hci_router_reorder
   parameter int unsigned NB_IN_CHAN  = 2,
   parameter int unsigned NB_OUT_CHAN = 2,
   parameter int unsigned FILTER_WRITE_R_VALID = 0,
+  parameter bit          MASK_REQ_ON_BE_WRITE = 1'b0,
+  parameter bit          MASK_REQ_ON_BE_READ  = 1'b0,
   parameter bit          USE_ECC = 0
 )
 (
@@ -42,6 +44,8 @@ module hci_router_reorder
   // When USE_ECC == 1 those 7 bits are appended to the 32-bit data word
   localparam int unsigned EW              = (USE_ECC) ?  7     : 1;
   localparam int unsigned RESP_DATA_WIDTH = (USE_ECC) ? (32+7) : 32;
+
+  localparam bit MASK_REQ_ON_BE = MASK_REQ_ON_BE_WRITE | MASK_REQ_ON_BE_READ;
 
   logic [NB_IN_CHAN-1:0]       in_req;
   logic [NB_IN_CHAN-1:0]       in_req_q;
@@ -64,6 +68,9 @@ module hci_router_reorder
   logic [NB_OUT_CHAN-1:0][31:0] out_r_data;
   logic [NB_OUT_CHAN-1:0][EW-1:0] out_r_ecc;
   logic [NB_IN_CHAN-1:0][NB_OUT_CHAN-1:0] ma_req;
+  logic [NB_IN_CHAN-1:0][NB_OUT_CHAN-1:0] ma_req_masked;
+  logic [NB_IN_CHAN-1:0] lane_en;
+  logic [NB_IN_CHAN-1:0] lane_en_q;
 
   logic [NB_IN_CHAN-1:0 ][RESP_DATA_WIDTH-1:0] resp_data_o;
   logic [NB_OUT_CHAN-1:0][RESP_DATA_WIDTH-1:0] resp_data_i;
@@ -154,12 +161,43 @@ module hci_router_reorder
 
       // When ECC is enabled, resp_data_o holds {data, check-bits}; otherwise it carries data only
       if (USE_ECC)
-        assign { in_r_data[i], in_r_ecc[i] } = resp_data_o[i];
+        assign { in_r_data[i], in_r_ecc[i] } = lane_en_q[i] ? resp_data_o[i] : '0;
       else begin
-        assign in_r_data[i] = resp_data_o[i];
+        assign in_r_data[i] = lane_en_q[i] ? resp_data_o[i] : '0;
         assign in_r_ecc[i]  = '0;
       end
 
+    end
+
+    // A lane whose byte enables are all-zero carries no useful traffic: depending on the direction of the
+    // access (wen==1 is a read, wen==0 is a write) its request can be suppressed altogether
+    for(genvar j=0; j<NB_IN_CHAN; j++) begin : lane_en_gen
+      if(MASK_REQ_ON_BE_WRITE && MASK_REQ_ON_BE_READ)
+        assign lane_en[j] = |in_be[j];
+      else if(MASK_REQ_ON_BE_WRITE)
+        assign lane_en[j] = (|in_be[j]) |  in_wen[0]; // reads are never masked
+      else if(MASK_REQ_ON_BE_READ)
+        assign lane_en[j] = (|in_be[j]) | ~in_wen[0]; // writes are never masked
+      else
+        assign lane_en[j] = 1'b1;
+
+      assign ma_req_masked[j] = ma_req[j] & {NB_OUT_CHAN{lane_en[j]}};
+    end // lane_en_gen
+
+    // delay lane_en by one cycle to match the fixed response latency
+    if(MASK_REQ_ON_BE) begin : lane_en_reg_gen
+      always_ff @(posedge clk_i or negedge rst_ni)
+      begin
+        if(~rst_ni)
+          lane_en_q <= '0;
+        else if(clear_i)
+          lane_en_q <= '0;
+        else
+          lane_en_q <= lane_en;
+      end
+    end
+    else begin : no_lane_en_reg_gen
+      assign lane_en_q = '1;
     end
 
     for(genvar i=0; i<NB_OUT_CHAN; i++) begin : out_chan_gen
@@ -174,11 +212,11 @@ module hci_router_reorder
         out_data[i] = '0;
         out_ecc[i]  = '0;
         for(int j=0; j<NB_IN_CHAN; j++) begin
-          out_req[i]  |= ma_req [j][i];
-          out_add[i]  |= ma_req [j][i] ? in_add  [j] : '0;
-          out_be[i]   |= ma_req [j][i] ? in_be   [j] : '0;
-          out_data[i] |= ma_req [j][i] ? in_data [j] : '0;
-          out_ecc[i]  |= ma_req [j][i] ? in_ecc  [j] : '0;
+          out_req[i]  |= ma_req_masked [j][i];
+          out_add[i]  |= ma_req_masked [j][i] ? in_add  [j] : '0;
+          out_be[i]   |= ma_req_masked [j][i] ? in_be   [j] : '0;
+          out_data[i] |= ma_req_masked [j][i] ? in_data [j] : '0;
+          out_ecc[i]  |= ma_req_masked [j][i] ? in_ecc  [j] : '0;
         end
       end
 

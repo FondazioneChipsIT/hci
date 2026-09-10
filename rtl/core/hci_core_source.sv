@@ -98,7 +98,8 @@ module hci_core_source
   parameter int unsigned MISALIGNED_ACCESSES = 1,
   parameter int unsigned PASSTHROUGH_FIFO = 0,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(tcdm) = '0,
-  parameter bit [2:0] DIM_ENABLE_1H = 3'b011 // Number of dimensions enabled in the address generator
+  parameter bit [2:0] DIM_ENABLE_1H = 3'b011, // Number of dimensions enabled in the address generator
+  parameter bit USE_BE = 1'b0 // when 1, advertise the actually-consumed bytes on tcdm.be
 )
 (
   input logic clk_i,
@@ -219,11 +220,29 @@ module hci_core_source
   assign tcdm.req     = (cs != STREAMER_IDLE) ? addr_pop.valid & stream.ready : '0;
   assign tcdm.add     = (cs != STREAMER_IDLE) ? {addr_pop.data[31:2],2'b0}    : '0;
   assign tcdm.wen     = 1'b1;
-  assign tcdm.be      = 4'h0;
   assign tcdm.data    = '0;
   assign tcdm.user    = '0;
   assign tcdm.id      = '0;
   assign tcdm.ecc     = '0;
+
+  // The HCI/TCDM protocol attaches no meaning to `be` on reads, so this used to be
+  // tied to zero. All-ones is the equivalent default, but is also distinguishable
+  // from "no byte is actually needed" by an interconnect that masks requests on the
+  // byte enables (see MASK_REQ_ON_BE_READ in hci_router_reorder); with all-zero,
+  // such an interconnect would drop every read this source issues.
+  // With USE_BE, `ctrl_i.be` advertises which bytes of the access the stream really consumes.
+  // It is expressed relative to the aligned datum, so it has to be shifted by the
+  // misalignment of the request currently being issued. An all-zero ctrl_i.be means
+  // "unspecified" and falls back to the full width, so a default-constructed
+  // ('0) streamer ctrl keeps behaving as it did before.
+  if(USE_BE) begin : be_gen
+    assign tcdm.be = (|ctrl_i.be) ? (ctrl_i.be[DATA_WIDTH/8-1:0] << addr_pop.data[1:0])
+                                  : '1;
+  end
+  else begin : no_be_gen
+    assign tcdm.be = '1;
+  end
+
   assign stream.strb  = '1;
   assign stream.data  = stream_data_aligned;
   assign stream.valid = enable_i & (tcdm.r_valid | stream_valid_q); // is this strictly necessary to keep the HWPE-Stream protocol? or can be avoided with a FIFO q?

@@ -46,6 +46,11 @@
  *   +---------------------+-------------+-------------------------------------------------------------------+
  *   | *USE_ECC*           | 0           | If set to 1, enables ECC check bits propagation.                  |
  *   +---------------------+-------------+-------------------------------------------------------------------+
+ *   | *MASK_REQ_ON_BE_WRITE* | 0        | If set to 1, write lanes with all-zero `be` do not request a bank.|
+ *   +---------------------+-------------+-------------------------------------------------------------------+
+ *   | *MASK_REQ_ON_BE_READ*  | 0        | Same for read lanes; only correct if `in` drives `be` on reads.   |
+ *   +---------------------+-------------+-------------------------------------------------------------------+
+ *
  */
 
 `include "hci_helpers.svh"
@@ -57,6 +62,8 @@ module hci_router
   parameter int unsigned NB_OUT_CHAN = 8,
   parameter bit          USE_ECC     = 0,
   parameter int unsigned FILTER_WRITE_R_VALID = 0,
+  parameter bit          MASK_REQ_ON_BE_WRITE = 1'b0,
+  parameter bit          MASK_REQ_ON_BE_READ  = 1'b0,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(in)  = '0,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(out) = '0
 )
@@ -264,7 +271,9 @@ module hci_router
     .NB_IN_CHAN  ( NB_IN_CHAN  ),
     .NB_OUT_CHAN ( NB_OUT_CHAN ),
     .USE_ECC     ( USE_ECC     ),
-    .FILTER_WRITE_R_VALID(FILTER_WRITE_R_VALID)
+    .FILTER_WRITE_R_VALID(FILTER_WRITE_R_VALID),
+    .MASK_REQ_ON_BE_WRITE(MASK_REQ_ON_BE_WRITE),
+    .MASK_REQ_ON_BE_READ (MASK_REQ_ON_BE_READ )
   ) i_reorder (
     .clk_i   ( clk_i         ),
     .rst_ni  ( rst_ni        ),

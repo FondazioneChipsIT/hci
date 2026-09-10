@@ -44,6 +44,7 @@ module hci_ecc_source
   parameter int unsigned CHUNK_SIZE  = 32,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(tcdm) = '0,
   parameter int unsigned DW  = `HCI_SIZE_GET_DW(tcdm),
+  parameter bit USE_BE = 1'b0,
   // Dependent parameters, do not override
   parameter int unsigned N_CHUNK = DW / CHUNK_SIZE
 )
@@ -101,7 +102,8 @@ module hci_ecc_source
     .ADDR_MIS_DEPTH      ( ADDR_MIS_DEPTH ),
     .MISALIGNED_ACCESSES ( MISALIGNED_ACCESSES ),
     .PASSTHROUGH_FIFO    ( PASSTHROUGH_FIFO ),
-    .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(virt_tcdm) )
+    .`HCI_SIZE_PARAM(tcdm) ( `HCI_SIZE_PARAM(virt_tcdm) ),
+    .USE_BE              ( USE_BE     )
   ) i_hci_core_source (
     .clk_i       ( clk_i       ),
     .rst_ni      ( rst_ni      ),

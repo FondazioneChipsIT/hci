@@ -63,6 +63,8 @@ module hci_interconnect
   parameter int unsigned EXPFIFO = 0                        , // FIFO Depth for HWPE Interconnect
   parameter int unsigned SEL_LIC = 0                        , // Log interconnect type selector
   parameter int unsigned FILTER_WRITE_R_VALID[0:N_HWPE-1] = '{default: 0},
+  parameter int unsigned MASK_REQ_ON_BE_WRITE[0:N_HWPE-1] = '{default: 0},
+  parameter int unsigned MASK_REQ_ON_BE_READ [0:N_HWPE-1] = '{default: 0},
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(cores) = '0,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(mems)  = '0,
   parameter hci_size_parameter_t `HCI_SIZE_PARAM(hwpe)  = '0,
@@ -237,11 +239,13 @@ module hci_interconnect
     if(N_HWPE > 0) begin: hwpe_branch_gen
 
       for(genvar ii=0; ii<N_HWPE; ii++) begin : hwpe_req2mem
-    
+
         hci_router #(
           .FIFO_DEPTH           ( EXPFIFO                   ),
           .NB_OUT_CHAN          ( N_MEM                     ),
           .FILTER_WRITE_R_VALID ( FILTER_WRITE_R_VALID[ii]  ),
+          .MASK_REQ_ON_BE_WRITE ( MASK_REQ_ON_BE_WRITE[ii]  ),
+          .MASK_REQ_ON_BE_READ  ( MASK_REQ_ON_BE_READ [ii]  ),
           .`HCI_SIZE_PARAM(in)  ( `HCI_SIZE_PARAM(hwpe)     ),
           .`HCI_SIZE_PARAM(out) ( `HCI_SIZE_PARAM(hwpe_mem) )
         ) i_router (

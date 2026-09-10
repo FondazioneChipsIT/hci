@@ -27,6 +27,7 @@ package hci_package;
   parameter int unsigned DEFAULT_IW = 8;  // Default ID Width
   parameter int unsigned DEFAULT_EW = 1;  // Default ECC for Data Width
   parameter int unsigned DEFAULT_EHW = 1;  // Default ECC for Handhshake Width
+  parameter int unsigned MAX_BE = 64;  // Widest byte-enable carried in hci_streamer_ctrl_t
 
   typedef struct packed {
     int unsigned DW;
@@ -57,6 +58,7 @@ package hci_package;
   typedef struct packed {
     logic                                     req_start;
     hwpe_stream_package::ctrl_addressgen_v3_t addressgen_ctrl;
+    logic [MAX_BE-1:0]                        be;
   } hci_streamer_ctrl_t;
 
   typedef struct packed {
